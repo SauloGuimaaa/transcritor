@@ -1,0 +1,21 @@
+# Core Torch com suporte a CUDA (NVIDIA)
+torch==2.1.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+torchaudio==2.1.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+torchvision==0.16.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
+
+# Transcrição Otimizada
+faster-whisper>=1.0.0
+
+# Diarização e Processamento de Áudio
+pyannote.audio==3.1.1
+ffmpeg-python==0.2.0
+
+# Utilitários e Dados
+pandas
+python-docx
+python-dotenv
+srt
+
+# Interface Gráfica
+streamlit
+watchdog
