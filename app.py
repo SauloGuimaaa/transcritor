@@ -158,8 +158,61 @@ def _run_pipeline(file_path, original_name, model_size, num_speakers, status_box
 # Interface Streamlit
 # ---------------------------------------------------------------------------
 
+def _render_downloads():
+    """
+    Renderiza os botões de download usando caminhos salvos no session_state.
+    Chamado fora do bloco if-button para sobreviver ao rerun causado pelo clique
+    no próprio botão de download (comportamento padrão do Streamlit).
+    """
+    output_base = st.session_state.get("output_base")
+    safe_name = st.session_state.get("safe_name")
+
+    if not output_base or not safe_name:
+        return
+
+    # Verifica se os arquivos ainda existem (proteção extra)
+    if not os.path.exists(output_base + ".docx"):
+        return
+
+    st.success(f"Transcrição pronta: **{safe_name}**")
+    c1, c2, c3 = st.columns(3)
+
+    with open(output_base + ".docx", "rb") as f:
+        c1.download_button(
+            "📄 Word (.docx)", f.read(),
+            file_name=f"{safe_name}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="dl_docx",
+        )
+    with open(output_base + ".srt", "rb") as f:
+        c2.download_button(
+            "🎬 Legenda (.srt)", f.read(),
+            file_name=f"{safe_name}.srt",
+            mime="text/plain",
+            key="dl_srt",
+        )
+    with open(output_base + ".txt", "rb") as f:
+        c3.download_button(
+            "📝 Texto (.txt)", f.read(),
+            file_name=f"{safe_name}.txt",
+            mime="text/plain",
+            key="dl_txt",
+        )
+
+    if st.button("🔄 Nova transcrição", key="btn_reset"):
+        st.session_state.pop("output_base", None)
+        st.session_state.pop("safe_name", None)
+        st.rerun()
+
+
 def main():
     st.title("🎙️ TranscreveLocal Pro")
+
+    # Se já existe resultado de uma execução anterior, mostra os downloads
+    # imediatamente (sobrevive ao rerun do botão de download).
+    if st.session_state.get("output_base"):
+        _render_downloads()
+        return
 
     tab1, tab2 = st.tabs(["📁 Upload de Arquivo", "▶️ Link do YouTube"])
 
@@ -223,15 +276,13 @@ def main():
             )
 
             status_box.update(label="✅ Processamento concluído!", state="complete", expanded=False)
-            st.success(f"Arquivo: **{safe_name}**")
 
-            c1, c2, c3 = st.columns(3)
-            with open(output_base + ".docx", "rb") as f:
-                c1.download_button("📄 Word (.docx)", f, file_name=f"{safe_name}.docx")
-            with open(output_base + ".srt", "rb") as f:
-                c2.download_button("🎬 Legenda (.srt)", f, file_name=f"{safe_name}.srt")
-            with open(output_base + ".txt", "rb") as f:
-                c3.download_button("📝 Texto (.txt)", f, file_name=f"{safe_name}.txt")
+            # Persiste os caminhos no session_state para sobreviver ao rerun
+            st.session_state["output_base"] = output_base
+            st.session_state["safe_name"] = safe_name
+
+            # Força rerun para renderizar os botões de download fora do bloco if-button
+            st.rerun()
 
         except Exception as e:
             status_box.update(label="Erro durante o processamento", state="error")
