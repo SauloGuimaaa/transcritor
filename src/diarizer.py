@@ -18,11 +18,18 @@ class DiarizerEngine:
             )
 
         try:
-            # `token` substitui o parâmetro `use_auth_token` (deprecado desde pyannote >= 3.x)
-            self.pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                token=auth_token,
-            )
+            # pyannote.audio 3.1.x usa `use_auth_token`; versões >= 3.2 usam `token`.
+            # Tentamos o parâmetro novo primeiro; se falhar, caímos para o antigo.
+            try:
+                self.pipeline = Pipeline.from_pretrained(
+                    "pyannote/speaker-diarization-3.1",
+                    token=auth_token,
+                )
+            except TypeError:
+                self.pipeline = Pipeline.from_pretrained(
+                    "pyannote/speaker-diarization-3.1",
+                    use_auth_token=auth_token,
+                )
 
             if torch.cuda.is_available():
                 self.pipeline.to(torch.device("cuda"))
