@@ -1,5 +1,6 @@
 import os
 import torch
+import huggingface_hub
 from pyannote.audio import Pipeline
 from dotenv import load_dotenv
 
@@ -9,17 +10,20 @@ load_dotenv()
 class DiarizerEngine:
     def __init__(self):
         print("👥 Inicializando motor de Diarização (Pyannote)...")
-        
+
         # Pega o token do arquivo .env
         auth_token = os.getenv("HF_TOKEN")
         if not auth_token:
             raise ValueError("❌ ERRO: Token HF_TOKEN não encontrado no arquivo .env!")
 
         try:
-            # Baixa/Carrega o pipeline de diarização
+            # Autentica no HuggingFace Hub globalmente, evitando conflito de parâmetro
+            # entre versões do pyannote.audio (use_auth_token vs token)
+            huggingface_hub.login(token=auth_token, add_to_git_credential=False)
+
+            # Baixa/Carrega o pipeline de diarização (sem passar token diretamente)
             self.pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1",
-                use_auth_token=auth_token
+                "pyannote/speaker-diarization-3.1"
             )
             
             # Envia para a GPU (Sua RTX 3050)
