@@ -90,6 +90,56 @@ def _release_gpu():
         torch.cuda.empty_cache()
 
 
+# Configurações testadas em ordem: da mais rápida/pesada para a mais leve.
+# "bad allocation" (std::bad_alloc) = CTranslate2 não conseguiu alocar memória
+# no meio da decodificação; nesse caso tentamos a próxima configuração.
+_FALLBACK_CONFIGS = [
+    ("cuda", "float16",      5),
+    ("cuda", "int8_float16", 5),
+    ("cuda", "int8_float16", 1),
+    ("cpu",  "int8",         5),
+]
+
+
+def _is_memory_error(exc):
+    msg = str(exc).lower()
+    return any(k in msg for k in (
+        "bad alloc", "bad_alloc", "out of memory", "cuda failed",
+        "cublas", "cudnn", "memoryerror",
+    )) or isinstance(exc, MemoryError)
+
+
+def _transcribe_with_fallback(wav_path, model_size, status_box):
+    last_exc = None
+    for device, compute_type, beam in _FALLBACK_CONFIGS:
+        if device == "cuda" and not torch.cuda.is_available():
+            continue
+        transcriber = None
+        try:
+            transcriber = TranscriberEngine(
+                model_size=model_size, device=device, compute_type=compute_type
+            )
+            segments, _ = transcriber.transcribe(wav_path, beam_size=beam)
+            if (device, compute_type, beam) != _FALLBACK_CONFIGS[0]:
+                status_box.write(
+                    f"   ✅ Concluído no modo econômico ({device}, {compute_type}, beam={beam})"
+                )
+            return segments
+        except Exception as e:
+            if not _is_memory_error(e):
+                raise
+            last_exc = e
+            print(f"AVISO: falta de memória com {device}/{compute_type}/beam={beam}: {e}")
+            status_box.write(
+                f"   ⚠️ Memória insuficiente ({device}, {compute_type}, beam={beam}) — "
+                "tentando modo mais leve..."
+            )
+        finally:
+            del transcriber
+            _release_gpu()
+    raise RuntimeError(f"Sem memória em todas as configurações: {last_exc}")
+
+
 # ---------------------------------------------------------------------------
 # Pipeline principal
 # ---------------------------------------------------------------------------
@@ -116,9 +166,7 @@ def _run_pipeline(file_path, original_name, model_size, num_speakers, status_box
 
         # 2. Transcrição
         status_box.write(f"🧠 Transcrevendo com Whisper ({model_size})...")
-        transcriber = TranscriberEngine(model_size=model_size, device="cuda")
-        whisper_segments, _ = transcriber.transcribe(processed_wav)
-        del transcriber
+        whisper_segments = _transcribe_with_fallback(processed_wav, model_size, status_box)
         _release_gpu()
 
         # 3. Diarização
