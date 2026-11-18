@@ -1,34 +1,39 @@
 import os
 import ffmpeg
 
+
 def convert_to_wav(input_path, output_path):
     """
-    Converte qualquer arquivo de mídia para WAV 16kHz Mono
-    usando o FFmpeg. Otimizado para o Whisper.
-    """
-    print(f"🔄 Processando áudio: {os.path.basename(input_path)}...")
-    
-    try:
-        # Verifica se o arquivo existe
-        if not os.path.exists(input_path):
-            raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+    Converte qualquer arquivo de mídia para WAV 16kHz Mono usando FFmpeg.
+    Otimizado para Whisper e Pyannote.
 
-        # Configura o FFmpeg:
-        # -y: Sobrescrever se existir
-        # -ac 1: Mono (Audio Channel = 1) -> Whisper não precisa de estéreo
-        # -ar 16000: Taxa de amostragem de 16kHz (Padrão do modelo)
+    Args:
+        input_path: Arquivo de entrada (mp3, mp4, ogg, m4a, mkv, mov, wav, ...).
+        output_path: Caminho de saída para o arquivo WAV.
+
+    Returns:
+        output_path (str)
+    """
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Arquivo de entrada não encontrado: {input_path}")
+
+    # Garante que o diretório de saída existe
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    print(f"Convertendo áudio: {os.path.basename(input_path)} ...")
+
+    try:
         (
             ffmpeg
             .input(input_path)
             .output(output_path, ac=1, ar=16000)
-            .run(cmd='ffmpeg', capture_stdout=True, capture_stderr=True, overwrite_output=True)
+            .run(cmd="ffmpeg", capture_stdout=True, capture_stderr=True, overwrite_output=True)
         )
-        print(f"✅ Conversão concluída: {os.path.basename(output_path)}")
+        print(f"   Conversão concluída: {os.path.basename(output_path)}")
         return output_path
 
     except ffmpeg.Error as e:
-        print(f"❌ Erro no FFmpeg: {e.stderr.decode('utf8')}")
-        raise e
-    except Exception as e:
-        print(f"❌ Erro genérico: {str(e)}")
-        raise e
+        raise RuntimeError(
+            f"FFmpeg falhou ao converter '{os.path.basename(input_path)}':\n"
+            + e.stderr.decode("utf-8", errors="replace")
+        ) from e

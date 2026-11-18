@@ -11,10 +11,12 @@ pyannote.audio==3.1.1
 ffmpeg-python==0.2.0
 
 # Utilitários e Dados
-pandas
 python-docx
 python-dotenv
 srt
+
+# Download de Vídeo (YouTube)
+yt-dlp
 
 # Interface Gráfica
 streamlit
